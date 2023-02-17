@@ -1,4 +1,9 @@
+plugins {
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
 import aQute.bnd.gradle.BundleTaskConvention
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.codehaus.groovy.runtime.InvokerHelper
 
 apply plugin: 'biz.aQute.bnd.builder'
@@ -82,8 +87,18 @@ compileJava {
     dependsOn generateProperties
 }
 
-task platformJar(type: Jar) {
+processResources {
+    dependsOn generateProperties
+}
+
+tasks.register("platformJar", Jar) {
     from sourceSets.platform.output
+}
+
+tasks.register("testJar", ShadowJar) {
+    classifier = 'tests'
+    configurations = [project.configurations.testRuntimeClasspath]
+    from sourceSets.test.output
 }
 
 if (isExecutableOnPath('cpplint')) {
@@ -169,11 +184,11 @@ dependencies {
     compileOnly project(':conscrypt-constants')
 
     testImplementation project(':conscrypt-constants'),
-            project(':conscrypt-testing'),
+            project(path: ':conscrypt-testing', configuration: 'shadow'),
             libraries.junit,
             libraries.mockito
 
-    testRuntimeClasspath sourceSets["$preferredSourceSet"].output
+    testRuntimeOnly sourceSets["$preferredSourceSet"].output
 
     platformCompileOnly sourceSets.main.output
 }
@@ -216,18 +231,20 @@ def addNativeJar(nativeClassifier) {
 }
 
 
+// TODO(prb) Still provide a mechanism for testing on Java 7?
 // Check which version
-def javaError = new ByteArrayOutputStream()
-exec {
-    executable test.executable
-    System.out.println("Running tests with java executable: " + test.executable + ".")
-    args = ['-version']
-    ignoreExitValue true
-    errorOutput = javaError
-}
-
-def suiteClass = (javaError.toString() =~ /"1[.]7[.].*"/) ?
-        "org/conscrypt/ConscryptJava7Suite.class" : "org/conscrypt/ConscryptSuite.class";
+//def javaError = new ByteArrayOutputStream()
+//exec {
+//    executable test.executable
+//    System.out.println("Running tests with java executable: " + test.executable + ".")
+//    args = ['-version']
+//    ignoreExitValue true
+//    errorOutput = javaError
+//}
+//
+//def suiteClass = (javaError.toString() =~ /"1[.]7[.].*"/) ?
+//        "org/conscrypt/ConscryptJava7Suite.class" : "org/conscrypt/ConscryptSuite.class";
+def suiteClass = "org/conscrypt/ConscryptSuite.class";
 
 test {
     include suiteClass, "org/conscrypt/ConscryptOpenJdkSuite.class"
@@ -260,8 +277,18 @@ jacocoTestReport {
 
 javadoc {
     dependsOn(configurations.publicApiDocs)
-    options.doclet = "org.conscrypt.doclet.FilterDoclet"
-    options.docletpath = configurations.publicApiDocs.files as List
+    // TODO(prb): Update doclet to Java 11.
+    // options.doclet = "org.conscrypt.doclet.FilterDoclet"
+    // options.docletpath = configurations.publicApiDocs.files as List
+}
+
+def jniIncludeDir() {
+    def result = ""
+    java {
+        def jdkHome = javaToolchains.compilerFor(toolchain).get().metadata.getInstallationPath()
+        result = jdkHome.file("include").toString()
+    }
+    result
 }
 
 model {
@@ -301,13 +328,14 @@ model {
                     // Set up 32-bit vs 64-bit build
                     def building64Bit = false
                     def libPath
+                    def jdkIncludeDir = jniIncludeDir()
                     if (targetPlatform.getArchitecture().getName() == "x86") {
                         libPath = "$boringssl32BuildDir"
                     } else if (targetPlatform.getArchitecture().getName() == "x86-64") {
                         libPath = "$boringssl64BuildDir"
                         building64Bit = true
                     } else {
-                        throw new GradleException("Unknown architecture: " +
+                        throw new RuntimeException("Unknown architecture: " +
                                 targetPlatform.getArchitecture().name)
                     }
 
@@ -408,17 +436,25 @@ model {
                 // Everything under will be included in the native jar.
                 into nativeResourcesDir(classifier) + '/META-INF/native'
             }
+            processResources {
+                dependsOn copyTask
+            }
+            processTestResources {
+                dependsOn copyTask
+            }
 
             // Now define a task to strip the release binary (linux only)
             if (osName == 'linux' && (!rootProject.hasProperty('nostrip') ||
                     !rootProject.nostrip.toBoolean())) {
                 def stripTask = binary.tasks.taskName("strip")
-                    task "$stripTask"(type: Exec) {
-                        dependsOn binary.tasks.link
-                        executable "strip"
-                        args binary.tasks.link.linkedFile.asFile.get()
-                    }
-                project.tasks["$copyTaskName"].dependsOn stripTask
+                project.tasks.register(stripTask as String, Exec) {
+                    dependsOn binary.tasks.link
+                    executable "strip"
+                    args binary.tasks.link.linkedFile.asFile.get()
+                }
+                copyTask.configure {
+                    dependsOn stripTask
+                }
             }
         }
     }
