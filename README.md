@@ -46,6 +46,7 @@ platform. We publish artifacts to Maven Central for the following platforms:
 Classifier | OS | Architecture
 -----------| ------- | ---------------- |
 linux-x86_64 | Linux | x86_64 (64-bit)
+linux-aarch_64 | Linux | aarch_64 (64-bit)
 osx-x86_64 | Mac | x86_64 (64-bit)
 windows-x86 | Windows | x86 (32-bit)
 windows-x86_64 | Windows | x86_64 (64-bit)
