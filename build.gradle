@@ -76,7 +76,7 @@ subprojects {
 
     group = "org.conscrypt"
     description = 'Conscrypt is an alternate Java Security Provider that uses BoringSSL'
-    version = "2.6-SNAPSHOT"
+    version = "2.6.dse"
 
     ext {
         // Needs to be binary compatible with androidMinSdkVersion
