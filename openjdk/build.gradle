@@ -393,6 +393,7 @@ model {
                     if (toolChain in Clang || toolChain in Gcc) {
                         cppCompiler.args "-Wall",
                                 "-Werror",
+                                "-Wno-error=unused-result",
                                 "-fPIC",
                                 "-O3",
                                 "-std=c++17",
