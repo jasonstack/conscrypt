@@ -117,8 +117,14 @@ ext {
     jniSourceDir = "$rootDir/common/src/jni"
     assert file("$jniSourceDir").exists()
 
-    // Decide which targets we should build and test
-    nativeBuilds = NativeBuildInfo.findAll("${osdetector.os}")
+    // Decide which targets we should build and test:
+    // - if mac, build both x86 and aarch64
+    // - if linux, build current architecture
+    if ("${osdetector.os}" == "mac") {
+        nativeBuilds = NativeBuildInfo.findAll("${osdetector.os}")
+    } else {
+        nativeBuilds = [NativeBuildInfo.find("${osdetector.os}", "${osdetector.arch}")]
+    }
     buildToTest = NativeBuildInfo.find("${osdetector.os}", "${osdetector.arch}")
 
     assert !nativeBuilds.isEmpty() : "No native builds selected."
