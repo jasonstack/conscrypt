@@ -42,16 +42,24 @@ publishing {
     }
 
     repositories {
+        // maven {
+        //     def snapshotUrl = 'https://oss.sonatype.org/content/repositories/snapshots/'
+        //     def stagingUrl = rootProject.hasProperty('repositoryId') ? \
+        //         'https://oss.sonatype.org/service/local/staging/deployByRepositoryId/' \
+        //             + rootProject.repositoryId : \
+        //         'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
+        //     url isSnapshot ? snapshotUrl : stagingUrl
+        //     credentials {
+        //         username = rootProject.findProperty('ossrhUsername') ?: ''
+        //         password = rootProject.findProperty('ossrhPassword') ?: ''
+        //     }
+        // }
         maven {
-            def snapshotUrl = 'https://oss.sonatype.org/content/repositories/snapshots/'
-            def stagingUrl = rootProject.hasProperty('repositoryId') ? \
-                'https://oss.sonatype.org/service/local/staging/deployByRepositoryId/' \
-                    + rootProject.repositoryId : \
-                'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
-            url isSnapshot ? snapshotUrl : stagingUrl
+            name = "DataStaxReleases"
+            url = "https://repo.aws.dsinternal.org/artifactory/datastax-public-releases-local"
             credentials {
-                username = rootProject.findProperty('ossrhUsername') ?: ''
-                password = rootProject.findProperty('ossrhPassword') ?: ''
+                username = System.getenv("ARTIFACTORY_USERNAME")
+                password = System.getenv("ARTIFACTORY_PASSWORD")
             }
         }
     }
