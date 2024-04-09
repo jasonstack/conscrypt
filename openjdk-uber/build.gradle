@@ -1,12 +1,30 @@
 description = 'Conscrypt: OpenJdk UberJAR'
 
+
+buildscript {
+
+    repositories {
+        mavenCentral()
+    }
+
+    // pull non-linux-aarch64 from maven central
+    dependencies {
+        classpath 'org.conscrypt:conscrypt-openjdk:2.5.2:osx-x86_64'
+        classpath 'org.conscrypt:conscrypt-openjdk:2.5.2:linux-x86_64'
+        classpath 'org.conscrypt:conscrypt-openjdk:2.5.2:windows-x86_64'
+    }
+}
+
 ext {
     buildUberJar = Boolean.parseBoolean(System.getProperty('org.conscrypt.openjdk.buildUberJar', 'false'))
+    // linux-aarch64 native code will be included separately
     uberJarClassifiers = (System.getProperty('org.conscrypt.openjdk.uberJarClassifiers',
-            'osx-x86_64,osx-aarch_64,linux-x86_64,linux-aarch_64,windows-x86_64')).split(',')
+            'osx-x86_64,linux-x86_64,windows-x86_64')).split(',')
     classesDir = "${buildDir}/classes"
     resourcesDir = "${buildDir}/resources"
     sourcesDir = "${buildDir}/sources"
+    // version to publish
+    uberJarVersion = "2.5.2.cndb"
 }
 
 if (buildUberJar) {
@@ -26,13 +44,13 @@ if (buildUberJar) {
         from sourcesDir
     }
 
-    // Add the dependencies for the uber jar.
+    // Add the non-linux-aarch_64 dependencies for the uber jar.
     uberJarClassifiers.each { uberJarClassifier ->
         dependencies.uberJar "${group}:conscrypt-openjdk:${version}:${uberJarClassifier}"
     }
 
     /**
-     * Copy the native libraries to the resources directory.
+     * Copy the non-linux-aarch_64 native libraries to the resources directory.
      */
     task copySharedLibs(type: Copy, dependsOn: configurations.uberJar) {
         from {
@@ -45,6 +63,17 @@ if (buildUberJar) {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
     jar.dependsOn copySharedLibs
+
+
+    // Copy the local linux-aarch_64 native library to the resources directory.
+    task copyLinuxAarch64Libs(type: Copy) {
+        def localLinuxAarch64JarPath = '../openjdk/build/tmp/linuxAarch_64Jar/conscrypt-openjdk-2.5.2-linux-aarch_64.jar'
+        from zipTree(localLinuxAarch64JarPath)
+        include '/META-INF/native/**'
+        into file(resourcesDir)
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+    jar.dependsOn copyLinuxAarch64Libs
 
     /**
      * Copy the object files to the classes directory.
@@ -84,6 +113,10 @@ if (buildUberJar) {
         artifact sourcesJar
         artifact javadocJar
         artifact jar
+
+        groupId 'org.conscrypt'
+        artifactId 'conscrypt-openjdk-uber'
+        version uberJarVersion // Use the custom version for the uber jar.
     }
 } else {
     // Not building an uber jar - disable all tasks.
